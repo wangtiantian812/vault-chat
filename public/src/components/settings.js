@@ -1,16 +1,22 @@
-import { getSettings, saveSettings } from '../utils/storage.js';
+import { getSettings, saveSettings, getToken, setToken } from '../utils/storage.js';
 import { onLogout } from '../auth.js';
 
 export function renderSettings(container) {
   const settings = getSettings();
+  const currentToken = getToken() || '';
 
   container.innerHTML = `
     <div class="settings-panel">
       <h2>设置</h2>
       <div class="settings-group">
-        <label>AI 密钥（可选）</label>
+        <label>GitHub Token</label>
+        <input type="password" id="settings-token" value="${currentToken}" placeholder="ghp_xxxxx 或 github_pat_xxxxx">
+        <div class="hint">用于读取和编辑笔记。没有 Token？<a href="https://github.com/settings/tokens?type=beta" target="_blank" style="color:var(--accent)">点击生成</a>（Fine-grained，选 obsidian-vault 仓库，权限 Contents: Read and write）</div>
+      </div>
+      <div class="settings-group">
+        <label>Claude API Key（可选）</label>
         <input type="password" id="settings-apikey" value="${settings.apiKey || ''}" placeholder="sk-ant-xxxxx">
-        <div class="hint">填入 Claude API Key 后可使用 AI 对话功能。留空则使用服务器配置的密钥。</div>
+        <div class="hint">用于 AI 对话功能。留空则无法使用对话。</div>
       </div>
       <div class="settings-group">
         <button id="settings-save">保存设置</button>
@@ -20,7 +26,9 @@ export function renderSettings(container) {
   `;
 
   document.getElementById('settings-save').addEventListener('click', () => {
+    const token = document.getElementById('settings-token').value.trim();
     const apiKey = document.getElementById('settings-apikey').value.trim();
+    if (token) setToken(token);
     saveSettings({ ...settings, apiKey });
     showToast('设置已保存');
   });

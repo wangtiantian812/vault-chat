@@ -1,12 +1,11 @@
-import { login } from './api.js';
-import { isLoggedIn, logout, getSettings, saveSettings } from './utils/storage.js';
+import { isLoggedIn, isSetupDone } from './utils/storage.js';
 import { renderLogin } from './components/login-screen.js';
 import { renderApp } from './components/app-shell.js';
 
 const app = document.getElementById('app');
 
 export function init() {
-  if (isLoggedIn()) {
+  if (isSetupDone() && isLoggedIn()) {
     renderApp(app);
   } else {
     renderLogin(app);
@@ -18,6 +17,8 @@ export function onLoginSuccess() {
 }
 
 export function onLogout() {
-  logout();
+  localStorage.removeItem('auth-token');
   renderLogin(app);
 }
+
+init();

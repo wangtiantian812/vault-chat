@@ -1,11 +1,13 @@
 import { renderNoteBrowser } from './note-browser.js';
 import { renderChatPanel } from './chat-panel.js';
 import { renderSettings } from './settings.js';
-import { fetchTree } from '../api.js';
+import { getToken } from '../utils/storage.js';
 
 let currentTab = 'notes';
 
 export function renderApp(container) {
+  const hasToken = !!getToken();
+
   container.innerHTML = `
     <div class="main-layout">
       <div class="main-content">
@@ -44,7 +46,6 @@ export function renderApp(container) {
       document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
       document.getElementById(`tab-${target}`).classList.add('active');
 
-      // Lazy init
       if (target === 'notes' && !document.getElementById('tab-notes').dataset.init) {
         renderNoteBrowser(document.getElementById('tab-notes'));
         document.getElementById('tab-notes').dataset.init = '1';
@@ -58,13 +59,25 @@ export function renderApp(container) {
     });
   });
 
-  // Init first tab
-  renderNoteBrowser(document.getElementById('tab-notes'));
+  if (hasToken) {
+    renderNoteBrowser(document.getElementById('tab-notes'));
+  } else {
+    // No token configured yet — show setup prompt
+    document.getElementById('tab-notes').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:var(--text-dim)">
+        <p style="font-size:18px;margin-bottom:12px;color:var(--text)">欢迎使用王者之剑</p>
+        <p style="margin-bottom:20px">请先在「设置」中配置 GitHub Token</p>
+        <button id="go-settings" style="padding:12px 24px;border:none;border-radius:var(--radius);background:var(--accent);color:white;font-size:15px;cursor:pointer">前往设置</button>
+      </div>
+    `;
+    document.getElementById('go-settings').addEventListener('click', () => {
+      document.querySelector('[data-tab="settings"]').click();
+    });
+  }
   document.getElementById('tab-notes').dataset.init = '1';
 }
 
-// Shared state for cross-component communication
 export const appState = {
-  noteContext: [],  // notes attached to chat
-  tree: null,       // cached file tree
+  noteContext: [],
+  tree: null,
 };

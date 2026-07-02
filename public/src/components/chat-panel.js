@@ -1,6 +1,5 @@
 import { streamChat, writeNote } from '../api.js';
 import { appState } from './app-shell.js';
-import { getSettings } from '../utils/storage.js';
 
 let messages = [];
 let isStreaming = false;
@@ -38,7 +37,6 @@ export function renderChatPanel(container) {
     }
   });
 
-  // Auto-resize textarea
   input.addEventListener('input', () => {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
@@ -74,15 +72,12 @@ async function sendMessage(container) {
   const text = input.value.trim();
   if (!text) return;
 
-  const settings = getSettings();
-
   messages.push({ role: 'user', content: text });
   input.value = '';
   input.style.height = 'auto';
 
   renderMessages();
 
-  // Add assistant placeholder
   const msgArea = document.getElementById('chat-messages');
   const assistantDiv = document.createElement('div');
   assistantDiv.className = 'chat-msg assistant';
@@ -97,7 +92,7 @@ async function sendMessage(container) {
     await streamChat(
       messages,
       appState.noteContext,
-      settings.apiKey || undefined,
+      null,
       (chunk) => {
         fullText += chunk;
         assistantDiv.querySelector('.bubble').innerHTML = formatChatText(fullText);
@@ -106,7 +101,6 @@ async function sendMessage(container) {
       () => {
         messages.push({ role: 'assistant', content: fullText });
         isStreaming = false;
-        // Add save button
         const saveBtn = document.createElement('button');
         saveBtn.className = 'chat-save-btn';
         saveBtn.textContent = '保存到笔记';
@@ -122,9 +116,7 @@ async function sendMessage(container) {
 
 function renderMessages() {
   const msgArea = document.getElementById('chat-messages');
-  // Save existing assistant DOM elements before clearing
   const assistantMsgs = Array.from(msgArea.querySelectorAll('.chat-msg.assistant'));
-  // Only render user messages (assistant messages come via streaming)
   const html = messages
     .filter((m) => m.role === 'user')
     .map(
@@ -162,7 +154,6 @@ async function saveChatToNote(assistantText) {
 
 function formatChatText(text) {
   let html = escapeHtml(text);
-  // Basic formatting
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');

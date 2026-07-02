@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-chat-v2';
+const CACHE_NAME = 'vault-chat-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -37,11 +37,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // API requests: network first
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
+  // API requests: network only (GitHub API + Claude API)
+  if (url.hostname === 'api.github.com' || url.hostname === 'api.anthropic.com' || url.hostname === 'corsproxy.io') {
     return;
   }
 
