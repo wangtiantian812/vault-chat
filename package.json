@@ -1,0 +1,14 @@
+{
+  "name": "vault-chat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "王者之剑知识库 - 移动端访问",
+  "scripts": {
+    "dev": "npx serve public -l 3000",
+    "deploy": "vercel --prod"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.2",
+    "vercel": "^54.18.7"
+  }
+}
