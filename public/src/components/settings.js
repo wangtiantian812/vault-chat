@@ -22,6 +22,10 @@ export function renderSettings(container) {
         <button id="settings-save">保存设置</button>
       </div>
       <button class="logout-btn" id="logout-btn">退出登录</button>
+      <div class="settings-group" style="margin-top:20px">
+        <label>快捷配置</label>
+        <div class="hint">如果 Token 无效，请在浏览器地址栏重新打开配置链接（含 token 和 key 参数），系统会自动保存。</div>
+      </div>
     </div>
   `;
 

@@ -34,7 +34,18 @@ async function loadTree(container) {
     list.innerHTML = '';
     renderTree(treeCache, list, container, 0, '');
   } catch (e) {
-    list.innerHTML = `<p style="color:var(--danger)">加载失败: ${e.message}</p>`;
+    if (e.message.includes('401')) {
+      list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-dim)">
+        <p style="font-size:16px;color:var(--danger);margin-bottom:12px">GitHub Token 无效或未配置</p>
+        <p style="margin-bottom:20px">请前往「设置」页面重新配置</p>
+        <button id="go-settings-from-error" style="padding:12px 24px;border:none;border-radius:var(--radius);background:var(--accent);color:white;font-size:15px;cursor:pointer">前往设置</button>
+      </div>`;
+      document.getElementById('go-settings-from-error').addEventListener('click', () => {
+        document.querySelector('[data-tab="settings"]').click();
+      });
+    } else {
+      list.innerHTML = `<p style="color:var(--danger)">加载失败: ${e.message}</p>`;
+    }
   }
 }
 
