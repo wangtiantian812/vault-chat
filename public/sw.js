@@ -1,5 +1,5 @@
 const BASE = '/vault-chat/';
-const CACHE_NAME = 'vault-chat-v5';
+const CACHE_NAME = 'vault-chat-v6';
 const STATIC_ASSETS = [
   BASE,
   `${BASE}index.html`,
@@ -43,8 +43,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: cache first
+  // Static assets: network first, fallback to cache
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        // Update cache with fresh response
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
