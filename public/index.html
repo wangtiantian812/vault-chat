@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>王者之剑 - 知识库</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="src/styles/main.css">
+  <link rel="stylesheet" href="src/styles/main.css?v=7">
 </head>
 <body>
   <div id="app"></div>
@@ -20,14 +20,14 @@
     };
     window.onunhandledrejection = function(e) {
       var el = document.getElementById('app');
-      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;white-space:pre-wrap;">异步错误: ' + (e.reason?.message || e.reason) + '</div>';
+      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;white-space:pre-wrap;">异步错误: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</div>';
     };
-  </script>
-  <script type="module" src="src/app.js"></script>
-  <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) regs[i].unregister();
+      });
     }
   </script>
+  <script type="module" src="src/app.js?v=7"></script>
 </body>
 </html>
