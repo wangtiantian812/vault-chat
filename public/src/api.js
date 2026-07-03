@@ -1,106 +1,111 @@
-const GH_API = 'https://api.github.com';
-const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
-const CORS_PROXY = 'https://corsproxy.io/?url=';
+var GH_API = 'https://api.github.com';
+var CLAUDE_API = 'https://api.anthropic.com/v1/messages';
+var CORS_PROXY = 'https://corsproxy.io/?url=';
 
-const OWNER = 'wangtiantian812';
-const REPO = 'obsidian-vault';
-const BRANCH = 'main';
+var OWNER = 'wangtiantian812';
+var REPO = 'obsidian-vault';
+var BRANCH = 'main';
 
 function ghHeaders() {
-  const token = localStorage.getItem('gh-token');
+  var token = localStorage.getItem('gh-token');
   return {
-    Authorization: `Bearer ${token}`,
+    Authorization: 'Bearer ' + token,
     Accept: 'application/vnd.github.v3+json',
   };
 }
 
 export async function fetchTree() {
-  const res = await fetch(
-    `${GH_API}/repos/${OWNER}/${REPO}/git/trees/${BRANCH}?recursive=1`,
+  var res = await fetch(
+    GH_API + '/repos/' + OWNER + '/' + REPO + '/git/trees/' + BRANCH + '?recursive=1',
     { headers: ghHeaders() }
   );
-  if (!res.ok) throw new Error(`获取文件树失败: ${res.status}`);
-  const data = await res.json();
-  const mdFiles = data.tree
-    .filter((item) => item.type === 'blob' && item.path.endsWith('.md'));
-  const tree = {};
-  for (const filePath of mdFiles) {
-    const parts = filePath.split('/');
-    let current = tree;
-    for (let i = 0; i < parts.length - 1; i++) {
+  if (!res.ok) throw new Error('获取文件树失败: ' + res.status);
+  var data = await res.json();
+  var mdFiles = data.tree
+    .filter(function(item) { return item.type === 'blob' && item.path.endsWith('.md'); });
+  var tree = {};
+  for (var fi = 0; fi < mdFiles.length; fi++) {
+    var filePath = mdFiles[fi].path;
+    var parts = filePath.split('/');
+    var current = tree;
+    for (var i = 0; i < parts.length - 1; i++) {
       if (!current[parts[i]]) current[parts[i]] = {};
       current = current[parts[i]];
     }
     current[parts[parts.length - 1]] = null;
   }
-  return { tree };
+  return { tree: tree };
 }
 
 export async function fetchNote(path) {
-  const encoded = encodeURIComponent(path);
-  const res = await fetch(
-    `${GH_API}/repos/${OWNER}/${REPO}/contents/${encoded}?ref=${BRANCH}`,
+  var encoded = encodeURIComponent(path);
+  var res = await fetch(
+    GH_API + '/repos/' + OWNER + '/' + REPO + '/contents/' + encoded + '?ref=' + BRANCH,
     { headers: ghHeaders() }
   );
-  if (!res.ok) throw new Error(`获取笔记失败: ${res.status}`);
-  const data = await res.json();
-  const content = atob(data.content.replace(/\n/g, ''));
-  const decoded = decodeURIComponent(escape(content));
-  return { path, content: decoded, sha: data.sha };
+  if (!res.ok) throw new Error('获取笔记失败: ' + res.status);
+  var data = await res.json();
+  var content = atob(data.content.replace(/\n/g, ''));
+  var decoded = decodeURIComponent(escape(content));
+  return { path: path, content: decoded, sha: data.sha };
 }
 
 export async function searchNotes(q) {
-  const query = `${q} repo:${OWNER}/${REPO} path:*.md`;
-  const res = await fetch(
-    `${GH_API}/search/code?q=${encodeURIComponent(query)}&per_page=20`,
+  var query = q + ' repo:' + OWNER + '/' + REPO + ' path:*.md';
+  var res = await fetch(
+    GH_API + '/search/code?q=' + encodeURIComponent(query) + '&per_page=20',
     { headers: ghHeaders() }
   );
-  if (!res.ok) throw new Error(`搜索失败: ${res.status}`);
-  const data = await res.json();
-  const results = (data.items || []).map((item) => ({
-    path: item.path,
-    name: item.name,
-  }));
-  return { results, total: results.length };
+  if (!res.ok) throw new Error('搜索失败: ' + res.status);
+  var data = await res.json();
+  var results = (data.items || []).map(function(item) {
+    return { path: item.path, name: item.name };
+  });
+  return { results: results, total: results.length };
 }
 
 export async function writeNote(path, content, sha) {
-  const encoded = encodeURIComponent(path);
-  const body = {
-    message: `Vault Chat更新: ${path.split('/').pop()}`,
+  var encoded = encodeURIComponent(path);
+  var body = {
+    message: 'Vault Chat更新: ' + path.split('/').pop(),
     content: btoa(unescape(encodeURIComponent(content))),
     branch: BRANCH,
   };
   if (sha) body.sha = sha;
-  const res = await fetch(
-    `${GH_API}/repos/${OWNER}/${REPO}/contents/${encoded}`,
+  var res = await fetch(
+    GH_API + '/repos/' + OWNER + '/' + REPO + '/contents/' + encoded,
     {
       method: 'PUT',
-      headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+      headers: Object.assign({}, ghHeaders(), { 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     }
   );
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `保存失败: ${res.status}`);
+    var err = await res.json().catch(function() { return {}; });
+    throw new Error(err.message || '保存失败: ' + res.status);
   }
-  const data = await res.json();
-  return { ok: true, sha: data.content?.sha || data.commit?.sha };
+  var data = await res.json();
+  var contentSha = (data.content && data.content.sha) || (data.commit && data.commit.sha);
+  return { ok: true, sha: contentSha };
 }
 
 export async function streamChat(messages, noteContext, apiKey, onChunk, onDone) {
-  const settings = getSettings();
-  const key = apiKey || settings.apiKey;
+  var settings = getSettings();
+  var key = apiKey || settings.apiKey;
   if (!key) throw new Error('未配置AI密钥，请在设置中填入 Claude API Key');
 
-  const systemPrompt = `你是"王者之剑"知识库的AI助手。用户可能引用了以下笔记作为上下文：
+  var noteCtxText = '（无笔记上下文）';
+  if (noteContext && noteContext.length > 0) {
+    noteCtxText = noteContext.map(function(n) {
+      return '--- 文件: ' + n.path + ' ---\n' + n.content + '\n';
+    }).join('\n');
+  }
 
-${noteContext?.map((n) => `--- 文件: ${n.path} ---\n${n.content}\n`).join('\n') || '（无笔记上下文）'}
+  var systemPrompt = '你是"王者之剑"知识库的AI助手。用户可能引用了以下笔记作为上下文：\n\n' +
+    noteCtxText + '\n\n请用中文回答。基于提供的笔记内容进行回答，如果笔记中没有相关信息请说明。';
 
-请用中文回答。基于提供的笔记内容进行回答，如果笔记中没有相关信息请说明。`;
-
-  const targetUrl = encodeURIComponent(CLAUDE_API);
-  const res = await fetch(`${CORS_PROXY}${targetUrl}`, {
+  var targetUrl = encodeURIComponent(CLAUDE_API);
+  var res = await fetch(CORS_PROXY + targetUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -117,45 +122,47 @@ ${noteContext?.map((n) => `--- 文件: ${n.path} ---\n${n.content}\n`).join('\n'
   });
 
   if (!res.ok) {
-    const data = await res.json().catch(() => ({ error: '请求失败' }));
-    throw new Error(data.error?.message || data.error || '聊天请求失败');
+    var data = await res.json().catch(function() { return { error: '请求失败' }; });
+    var errMsg = (data.error && data.error.message) || data.error || '聊天请求失败';
+    throw new Error(errMsg);
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
+  var reader = res.body.getReader();
+  var decoder = new TextDecoder();
 
   while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split('\n');
-    for (const line of lines) {
+    var result = await reader.read();
+    if (result.done) break;
+    var chunk = decoder.decode(result.value, { stream: true });
+    var lines = chunk.split('\n');
+    for (var li = 0; li < lines.length; li++) {
+      var line = lines[li];
       if (line.startsWith('data: ')) {
-        const data = line.slice(6);
+        var data = line.slice(6);
         if (data === '[DONE]') {
-          onDone?.();
+          if (onDone) onDone();
           return;
         }
         try {
-          const parsed = JSON.parse(data);
+          var parsed = JSON.parse(data);
           if (
             parsed.type === 'content_block_delta' &&
-            parsed.delta?.type === 'text_delta'
+            parsed.delta && parsed.delta.type === 'text_delta'
           ) {
             onChunk(parsed.delta.text);
           } else if (parsed.type === 'message_stop') {
-            onDone?.();
+            if (onDone) onDone();
             return;
           }
         } catch (e) {}
       }
     }
   }
-  onDone?.();
+  if (onDone) onDone();
 }
 
 function getSettings() {
-  const raw = localStorage.getItem('vault-chat-settings');
+  var raw = localStorage.getItem('vault-chat-settings');
   if (!raw) return { apiKey: '' };
-  try { return JSON.parse(raw); } catch (e) { return { apiKey: ''; } }
+  try { return JSON.parse(raw); } catch (e) { return { apiKey: '' }; }
 }

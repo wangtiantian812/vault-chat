@@ -191,7 +191,7 @@ function renderNoteEditor(container, note) {
     try {
       const result = await writeNote(note.path, content, note.sha);
       showToast('保存成功');
-      currentNote = { ...note, content, sha: result.sha };
+      currentNote = Object.assign({}, note, { content: content, sha: result.sha });
       currentView = 'view';
       renderNoteView(container, currentNote);
     } catch (e) {

@@ -33,7 +33,7 @@ export function renderSettings(container) {
     const token = document.getElementById('settings-token').value.trim();
     const apiKey = document.getElementById('settings-apikey').value.trim();
     if (token) setToken(token);
-    saveSettings({ ...settings, apiKey });
+    saveSettings(Object.assign({}, settings, { apiKey: apiKey }));
     showToast('设置已保存');
   });
 

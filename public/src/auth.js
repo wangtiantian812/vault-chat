@@ -16,7 +16,7 @@ if (urlToken) {
 const urlKey = params.get('key');
 if (urlKey) {
   const settings = getSettings();
-  saveSettings({ ...settings, apiKey: urlKey });
+  saveSettings(Object.assign({}, settings, { apiKey: urlKey }));
   params.delete('key');
   shouldCleanUrl = true;
 }
