@@ -1,21 +1,22 @@
-const CACHE_NAME = 'vault-chat-v3';
+const BASE = '/vault-chat/';
+const CACHE_NAME = 'vault-chat-v4';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/src/styles/main.css',
-  '/src/app.js',
-  '/src/auth.js',
-  '/src/api.js',
-  '/src/utils/storage.js',
-  '/src/utils/markdown.js',
-  '/src/components/login-screen.js',
-  '/src/components/app-shell.js',
-  '/src/components/note-browser.js',
-  '/src/components/chat-panel.js',
-  '/src/components/settings.js',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  BASE,
+  `${BASE}index.html`,
+  `${BASE}src/styles/main.css`,
+  `${BASE}src/app.js`,
+  `${BASE}src/auth.js`,
+  `${BASE}src/api.js`,
+  `${BASE}src/utils/storage.js`,
+  `${BASE}src/utils/markdown.js`,
+  `${BASE}src/components/login-screen.js`,
+  `${BASE}src/components/app-shell.js`,
+  `${BASE}src/components/note-browser.js`,
+  `${BASE}src/components/chat-panel.js`,
+  `${BASE}src/components/settings.js`,
+  `${BASE}manifest.json`,
+  `${BASE}icons/icon-192.png`,
+  `${BASE}icons/icon-512.png`,
 ];
 
 self.addEventListener('install', (event) => {
@@ -37,7 +38,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // API requests: network only (GitHub API + Claude API)
+  // API requests: network only
   if (url.hostname === 'api.github.com' || url.hostname === 'api.anthropic.com' || url.hostname === 'corsproxy.io') {
     return;
   }
