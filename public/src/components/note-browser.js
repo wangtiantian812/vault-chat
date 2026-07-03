@@ -128,7 +128,7 @@ function renderNoteView(container, note) {
           const data = await fetchNote(found);
           currentNote = data;
           renderNoteView(container, data);
-        } catch {}
+        } catch (e) {}
       } else {
         showToast(`未找到笔记: ${link}`);
       }

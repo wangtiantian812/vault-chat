@@ -41,7 +41,7 @@ async function sha256(text) {
 export function getSettings() {
   const raw = localStorage.getItem('vault-chat-settings');
   if (!raw) return { apiKey: '' };
-  try { return JSON.parse(raw); } catch { return { apiKey: ''; } }
+  try { return JSON.parse(raw); } catch (e) { return { apiKey: ''; } }
 }
 
 export function saveSettings(settings) {

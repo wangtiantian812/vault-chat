@@ -147,7 +147,7 @@ ${noteContext?.map((n) => `--- 文件: ${n.path} ---\n${n.content}\n`).join('\n'
             onDone?.();
             return;
           }
-        } catch {}
+        } catch (e) {}
       }
     }
   }
@@ -157,5 +157,5 @@ ${noteContext?.map((n) => `--- 文件: ${n.path} ---\n${n.content}\n`).join('\n'
 function getSettings() {
   const raw = localStorage.getItem('vault-chat-settings');
   if (!raw) return { apiKey: '' };
-  try { return JSON.parse(raw); } catch { return { apiKey: ''; } }
+  try { return JSON.parse(raw); } catch (e) { return { apiKey: ''; } }
 }
