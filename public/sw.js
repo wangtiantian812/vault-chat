@@ -1,5 +1,5 @@
 const BASE = '/vault-chat/';
-const CACHE_NAME = 'vault-chat-v4';
+const CACHE_NAME = 'vault-chat-v5';
 const STATIC_ASSETS = [
   BASE,
   `${BASE}index.html`,
