@@ -9,18 +9,27 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>王者之剑 - 知识库</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="src/styles/main.css?v=7">
+  <link rel="stylesheet" href="src/styles/main.css?v=8">
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af">
+      <div style="text-align:center">
+        <div style="width:24px;height:24px;border:3px solid #2a2a4a;border-top-color:#7c5cff;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px"></div>
+        <div>加载中...</div>
+      </div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
   <script>
-    window.onerror = function(msg, src, line, col, err) {
+    window.onerror = function(msg, src, line) {
       var el = document.getElementById('app');
-      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;white-space:pre-wrap;">JS错误: ' + msg + '\n' + (src||'') + ':' + line + '</div>';
+      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;white-space:pre-wrap;">JS Error: ' + msg + '\\n' + (src||'') + ':' + line + '</div>';
     };
     window.onunhandledrejection = function(e) {
       var el = document.getElementById('app');
-      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;white-space:pre-wrap;">异步错误: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</div>';
+      var msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
+      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;">Async Error: ' + msg + '</div>';
     };
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -28,6 +37,6 @@
       });
     }
   </script>
-  <script type="module" src="src/app.js?v=7"></script>
+  <script src="app.bundle.js?v=8"></script>
 </body>
 </html>
