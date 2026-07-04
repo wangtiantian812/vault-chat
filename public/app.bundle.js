@@ -215,23 +215,29 @@ VaultChat.streamChat = function(messages, noteContext, apiKey, onChunk, onDone) 
   var systemPrompt = '你是"王者之剑"知识库的AI助手。用户可能引用了以下笔记作为上下文：\n\n' +
     noteCtxText + '\n\n请用中文回答。基于提供的笔记内容进行回答，如果笔记中没有相关信息请说明。';
 
-  // Use custom API base URL if configured, otherwise default
-  var apiBase = settings.apiBase || self.CLAUDE_API;
-  var useCorsProxy = !settings.apiBase; // Only use CORS proxy for default Anthropic API
-  var fetchUrl = useCorsProxy ? (self.CORS_PROXY + encodeURIComponent(apiBase)) : apiBase;
+  // Determine API type: gemini, custom proxy, or default claude
+  var apiBase = (settings.apiBase || '').trim();
+  var isGemini = apiBase.indexOf('generativelanguage.googleapis.com') !== -1 || (settings.provider === 'gemini');
+
+  if (isGemini) {
+    return self.streamGemini(key, systemPrompt, messages, onChunk, onDone);
+  }
+
+  // Claude or custom proxy
+  var useCorsProxy = !apiBase;
+  var fetchUrl = useCorsProxy ? (self.CORS_PROXY + encodeURIComponent(self.CLAUDE_API)) : apiBase;
 
   var headers = {
     'Content-Type': 'application/json',
     'x-api-key': key,
     'anthropic-version': '2023-06-01'
   };
-  // Add custom headers if configured
   if (settings.customHeaders) {
     try {
       var custom = JSON.parse(settings.customHeaders);
-      var keys = Object.keys(custom);
-      for (var i = 0; i < keys.length; i++) {
-        headers[keys[i]] = custom[keys[i]];
+      var ckeys = Object.keys(custom);
+      for (var i = 0; i < ckeys.length; i++) {
+        headers[ckeys[i]] = custom[ckeys[i]];
       }
     } catch (e) {}
   }
@@ -287,6 +293,77 @@ VaultChat.streamChat = function(messages, noteContext, apiKey, onChunk, onDone) 
               } else if (parsed.type === 'message_stop') {
                 if (onDone) onDone();
                 return;
+              }
+            } catch (e) {}
+          }
+        }
+        return readChunk();
+      });
+    }
+    return readChunk();
+  });
+};
+
+// Google Gemini streaming - no CORS proxy needed!
+VaultChat.streamGemini = function(apiKey, systemPrompt, messages, onChunk, onDone) {
+  var geminiMessages = [];
+
+  // Convert messages to Gemini format
+  for (var i = 0; i < messages.length; i++) {
+    var m = messages[i];
+    geminiMessages.push({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    });
+  }
+
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=' + apiKey;
+
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: geminiMessages,
+      generationConfig: { maxOutputTokens: 2048 }
+    })
+  }).then(function(res) {
+    if (!res.ok) {
+      return res.text().then(function(text) {
+        var errMsg = 'Gemini 请求失败 (' + res.status + ')';
+        try {
+          var data = JSON.parse(text);
+          errMsg = (data.error && data.error.message) || errMsg;
+        } catch (e) {
+          if (text) errMsg = text.substring(0, 200);
+        }
+        throw new Error(errMsg);
+      });
+    }
+    return res;
+  }).then(function(res) {
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+
+    function readChunk() {
+      return reader.read().then(function(result) {
+        if (result.done) {
+          if (onDone) onDone();
+          return;
+        }
+        var chunk = decoder.decode(result.value, { stream: true });
+        var lines = chunk.split('\n');
+        for (var li = 0; li < lines.length; li++) {
+          var line = lines[li];
+          if (line.startsWith('data: ')) {
+            var data = line.slice(6).trim();
+            if (!data) continue;
+            try {
+              var parsed = JSON.parse(data);
+              if (parsed.candidates && parsed.candidates[0] && parsed.candidates[0].content &&
+                  parsed.candidates[0].content.parts && parsed.candidates[0].content.parts[0]) {
+                var text = parsed.candidates[0].content.parts[0].text;
+                if (text) onChunk(text);
               }
             } catch (e) {}
           }
@@ -394,29 +471,44 @@ VaultChat.renderSettings = function(container) {
   var V = VaultChat;
   var settings = V.getSettings();
   var currentToken = V.getToken() || '';
+  var currentProvider = settings.provider || 'gemini';
 
   container.innerHTML =
     '<div class="settings-panel">' +
       '<h2>设置</h2>' +
       '<div class="settings-group">' +
         '<label>GitHub Token</label>' +
-        '<input type="password" id="settings-token" value="' + currentToken + '" placeholder="ghp_xxxxx 或 github_pat_xxxxx">' +
+        '<input type="password" id="settings-token" value="' + currentToken + '" placeholder="ghp_xxxxx">' +
         '<div class="hint">用于读取和编辑笔记</div>' +
       '</div>' +
       '<div class="settings-group">' +
-        '<label>AI API Key</label>' +
-        '<input type="password" id="settings-apikey" value="' + (settings.apiKey || '') + '" placeholder="sk-ant-xxxxx 或 sk-xxxxx">' +
-        '<div class="hint">用于 AI 对话功能</div>' +
+        '<label>AI 对话引擎</label>' +
+        '<select id="settings-provider" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-input);color:var(--text);font-size:14px">' +
+          '<option value="gemini"' + (currentProvider === 'gemini' ? ' selected' : '') + '>Google Gemini（免费推荐）</option>' +
+          '<option value="claude"' + (currentProvider === 'claude' ? ' selected' : '') + '>Claude（需官方API Key）</option>' +
+        '</select>' +
       '</div>' +
-      '<div class="settings-group">' +
-        '<label>API 代理地址（可选）</label>' +
-        '<input type="text" id="settings-apibase" value="' + (settings.apiBase || '') + '" placeholder="留空用默认 https://api.anthropic.com/v1/messages">' +
-        '<div class="hint">如用公司代理填 https://next.ke.com/ob/api/v1/messages</div>' +
+      '<div id="gemini-settings">' +
+        '<div class="settings-group">' +
+          '<label>Gemini API Key</label>' +
+          '<input type="password" id="settings-apikey" value="' + (settings.apiKey || '') + '" placeholder="AIzaSyxxxxx">' +
+          '<div class="hint">免费获取：<a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">Google AI Studio</a> → Create API Key</div>' +
+        '</div>' +
       '</div>' +
-      '<div class="settings-group">' +
-        '<label>自定义请求头（可选）</label>' +
-        '<textarea id="settings-headers" rows="3" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-input);color:var(--text);font-size:13px;resize:vertical;font-family:monospace" placeholder=\'{"X-OB-Version":"1.12.7","X-Plugin-Auth":"Bearer obat-xxx"}\'>' + (settings.customHeaders || '') + '</textarea>' +
-        '<div class="hint">JSON 格式，公司代理可能需要额外请求头</div>' +
+      '<div id="claude-settings" style="display:' + (currentProvider === 'claude' ? 'block' : 'none') + '">' +
+        '<div class="settings-group">' +
+          '<label>Claude API Key</label>' +
+          '<input type="password" id="settings-claude-key" value="' + (settings.claudeKey || '') + '" placeholder="sk-ant-xxxxx">' +
+          '<div class="hint">需 Anthropic 官方 Key，从 console.anthropic.com 获取</div>' +
+        '</div>' +
+        '<div class="settings-group">' +
+          '<label>自定义代理地址（可选）</label>' +
+          '<input type="text" id="settings-apibase" value="' + (settings.apiBase || '') + '" placeholder="留空用默认地址">' +
+        '</div>' +
+        '<div class="settings-group">' +
+          '<label>自定义请求头（可选）</label>' +
+          '<textarea id="settings-headers" rows="3" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-input);color:var(--text);font-size:13px;resize:vertical;font-family:monospace" placeholder=\'{"X-OB-Version":"1.12.7"}\'>' + (settings.customHeaders || '') + '</textarea>' +
+        '</div>' +
       '</div>' +
       '<div class="settings-group">' +
         '<button id="settings-save">保存设置</button>' +
@@ -424,17 +516,31 @@ VaultChat.renderSettings = function(container) {
       '<button class="logout-btn" id="logout-btn">退出登录</button>' +
     '</div>';
 
+  // Toggle between Gemini and Claude settings
+  document.getElementById('settings-provider').addEventListener('change', function() {
+    var provider = this.value;
+    document.getElementById('gemini-settings').style.display = provider === 'gemini' ? 'block' : 'none';
+    document.getElementById('claude-settings').style.display = provider === 'claude' ? 'block' : 'none';
+  });
+
   document.getElementById('settings-save').addEventListener('click', function() {
     var token = document.getElementById('settings-token').value.trim();
+    var provider = document.getElementById('settings-provider').value;
     var apiKey = document.getElementById('settings-apikey').value.trim();
-    var apiBase = document.getElementById('settings-apibase').value.trim();
-    var customHeaders = document.getElementById('settings-headers').value.trim();
+    var claudeKey = document.getElementById('settings-claude-key') ? document.getElementById('settings-claude-key').value.trim() : '';
+    var apiBase = document.getElementById('settings-apibase') ? document.getElementById('settings-apibase').value.trim() : '';
+    var customHeaders = document.getElementById('settings-headers') ? document.getElementById('settings-headers').value.trim() : '';
+
     if (token) V.setToken(token);
-    V.saveSettings(Object.assign({}, settings, {
-      apiKey: apiKey,
+
+    var newSettings = Object.assign({}, settings, {
+      provider: provider,
+      apiKey: provider === 'gemini' ? apiKey : (claudeKey || apiKey),
+      claudeKey: claudeKey || '',
       apiBase: apiBase || '',
       customHeaders: customHeaders || ''
-    }));
+    });
+    V.saveSettings(newSettings);
     V.showToast('设置已保存');
   });
 
