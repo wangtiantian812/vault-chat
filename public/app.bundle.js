@@ -203,7 +203,7 @@ VaultChat.streamChat = function(messages, noteContext, apiKey, onChunk, onDone) 
   var self = VaultChat;
   var settings = self.getSettings();
   var key = apiKey || settings.apiKey;
-  if (!key) throw new Error('未配置AI密钥，请在设置中填入 Claude API Key');
+  if (!key) throw new Error('未配置AI密钥，请在设置中填入 API Key');
 
   var noteCtxText = '（无笔记上下文）';
   if (noteContext && noteContext.length > 0) {
@@ -215,16 +215,32 @@ VaultChat.streamChat = function(messages, noteContext, apiKey, onChunk, onDone) 
   var systemPrompt = '你是"王者之剑"知识库的AI助手。用户可能引用了以下笔记作为上下文：\n\n' +
     noteCtxText + '\n\n请用中文回答。基于提供的笔记内容进行回答，如果笔记中没有相关信息请说明。';
 
-  var targetUrl = encodeURIComponent(self.CLAUDE_API);
-  return fetch(self.CORS_PROXY + targetUrl, {
+  // Use custom API base URL if configured, otherwise default
+  var apiBase = settings.apiBase || self.CLAUDE_API;
+  var useCorsProxy = !settings.apiBase; // Only use CORS proxy for default Anthropic API
+  var fetchUrl = useCorsProxy ? (self.CORS_PROXY + encodeURIComponent(apiBase)) : apiBase;
+
+  var headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': key,
+    'anthropic-version': '2023-06-01'
+  };
+  // Add custom headers if configured
+  if (settings.customHeaders) {
+    try {
+      var custom = JSON.parse(settings.customHeaders);
+      var keys = Object.keys(custom);
+      for (var i = 0; i < keys.length; i++) {
+        headers[keys[i]] = custom[keys[i]];
+      }
+    } catch (e) {}
+  }
+
+  return fetch(fetchUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01'
-    },
+    headers: headers,
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: settings.model || 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
       system: systemPrompt,
       messages: messages || [],
@@ -232,8 +248,14 @@ VaultChat.streamChat = function(messages, noteContext, apiKey, onChunk, onDone) 
     })
   }).then(function(res) {
     if (!res.ok) {
-      return res.json().catch(function() { return { error: '请求失败' }; }).then(function(data) {
-        var errMsg = (data.error && data.error.message) || data.error || '聊天请求失败';
+      return res.text().then(function(text) {
+        var errMsg = '聊天请求失败 (' + res.status + ')';
+        try {
+          var data = JSON.parse(text);
+          errMsg = (data.error && data.error.message) || data.error || errMsg;
+        } catch (e) {
+          if (text) errMsg = text.substring(0, 200);
+        }
         throw new Error(errMsg);
       });
     }
@@ -379,28 +401,40 @@ VaultChat.renderSettings = function(container) {
       '<div class="settings-group">' +
         '<label>GitHub Token</label>' +
         '<input type="password" id="settings-token" value="' + currentToken + '" placeholder="ghp_xxxxx 或 github_pat_xxxxx">' +
-        '<div class="hint">用于读取和编辑笔记。没有 Token？<a href="https://github.com/settings/tokens?type=beta" target="_blank" style="color:var(--accent)">点击生成</a></div>' +
+        '<div class="hint">用于读取和编辑笔记</div>' +
       '</div>' +
       '<div class="settings-group">' +
-        '<label>Claude API Key</label>' +
-        '<input type="password" id="settings-apikey" value="' + (settings.apiKey || '') + '" placeholder="sk-ant-xxxxx">' +
+        '<label>AI API Key</label>' +
+        '<input type="password" id="settings-apikey" value="' + (settings.apiKey || '') + '" placeholder="sk-ant-xxxxx 或 sk-xxxxx">' +
         '<div class="hint">用于 AI 对话功能</div>' +
+      '</div>' +
+      '<div class="settings-group">' +
+        '<label>API 代理地址（可选）</label>' +
+        '<input type="text" id="settings-apibase" value="' + (settings.apiBase || '') + '" placeholder="留空用默认 https://api.anthropic.com/v1/messages">' +
+        '<div class="hint">如用公司代理填 https://next.ke.com/ob/api/v1/messages</div>' +
+      '</div>' +
+      '<div class="settings-group">' +
+        '<label>自定义请求头（可选）</label>' +
+        '<textarea id="settings-headers" rows="3" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-input);color:var(--text);font-size:13px;resize:vertical;font-family:monospace" placeholder=\'{"X-OB-Version":"1.12.7","X-Plugin-Auth":"Bearer obat-xxx"}\'>' + (settings.customHeaders || '') + '</textarea>' +
+        '<div class="hint">JSON 格式，公司代理可能需要额外请求头</div>' +
       '</div>' +
       '<div class="settings-group">' +
         '<button id="settings-save">保存设置</button>' +
       '</div>' +
       '<button class="logout-btn" id="logout-btn">退出登录</button>' +
-      '<div class="settings-group" style="margin-top:20px">' +
-        '<label>快捷配置</label>' +
-        '<div class="hint">如果 Token 无效，请重新打开配置链接（含 token 和 key 参数）</div>' +
-      '</div>' +
     '</div>';
 
   document.getElementById('settings-save').addEventListener('click', function() {
     var token = document.getElementById('settings-token').value.trim();
     var apiKey = document.getElementById('settings-apikey').value.trim();
+    var apiBase = document.getElementById('settings-apibase').value.trim();
+    var customHeaders = document.getElementById('settings-headers').value.trim();
     if (token) V.setToken(token);
-    V.saveSettings(Object.assign({}, settings, { apiKey: apiKey }));
+    V.saveSettings(Object.assign({}, settings, {
+      apiKey: apiKey,
+      apiBase: apiBase || '',
+      customHeaders: customHeaders || ''
+    }));
     V.showToast('设置已保存');
   });
 

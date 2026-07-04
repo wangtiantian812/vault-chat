@@ -34,9 +34,11 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
         for (var i = 0; i < regs.length; i++) regs[i].unregister();
+      }).then(function() {
+        navigator.serviceWorker.register('sw.js');
       });
     }
   </script>
-  <script src="app.bundle.js?v=8"></script>
+  <script src="app.bundle.js?v=9"></script>
 </body>
 </html>

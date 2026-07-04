@@ -1,57 +1,34 @@
-const BASE = '/vault-chat/';
-const CACHE_NAME = 'vault-chat-v6';
-const STATIC_ASSETS = [
-  BASE,
-  `${BASE}index.html`,
-  `${BASE}src/styles/main.css`,
-  `${BASE}src/app.js`,
-  `${BASE}src/auth.js`,
-  `${BASE}src/api.js`,
-  `${BASE}src/utils/storage.js`,
-  `${BASE}src/utils/markdown.js`,
-  `${BASE}src/components/login-screen.js`,
-  `${BASE}src/components/app-shell.js`,
-  `${BASE}src/components/note-browser.js`,
-  `${BASE}src/components/chat-panel.js`,
-  `${BASE}src/components/settings.js`,
-  `${BASE}manifest.json`,
-  `${BASE}icons/icon-192.png`,
-  `${BASE}icons/icon-512.png`,
-];
+var CACHE_NAME = 'vault-chat-v8';
+var BASE = '/vault-chat/';
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  );
+self.addEventListener('install', function(event) {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', function(event) {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches.keys().then(function(keys) {
+      return Promise.all(keys.filter(function(k) { return k !== CACHE_NAME; }).map(function(k) { return caches.delete(k); }));
+    })
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // API requests: network only
-  if (url.hostname === 'api.github.com' || url.hostname === 'api.anthropic.com' || url.hostname === 'corsproxy.io') {
+self.addEventListener('fetch', function(event) {
+  var url = new URL(event.request.url);
+  // API requests: network only, no cache
+  if (url.hostname === 'api.github.com' || url.hostname === 'api.anthropic.com' ||
+      url.hostname === 'corsproxy.io' || url.hostname === 'next.ke.com') {
     return;
   }
-
-  // Static assets: network first, fallback to cache
+  // Everything else: network first, cache fallback
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Update cache with fresh response
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
+    fetch(event.request).then(function(response) {
+      var clone = response.clone();
+      caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, clone); });
+      return response;
+    }).catch(function() {
+      return caches.match(event.request);
+    })
   );
 });
