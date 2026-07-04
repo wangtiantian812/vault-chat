@@ -1123,10 +1123,15 @@ VaultChat.renderApp = function(container) {
     shouldCleanUrl = true;
   }
   var urlKey = params.get('key');
-  if (urlKey) {
+  var urlProvider = params.get('provider');
+  if (urlKey || urlProvider) {
     var settings = V.getSettings();
-    V.saveSettings(Object.assign({}, settings, { apiKey: urlKey }));
+    var newSettings = Object.assign({}, settings);
+    if (urlKey) newSettings.apiKey = urlKey;
+    if (urlProvider) newSettings.provider = urlProvider;
+    V.saveSettings(newSettings);
     params.delete('key');
+    params.delete('provider');
     shouldCleanUrl = true;
   }
   if (shouldCleanUrl) {
