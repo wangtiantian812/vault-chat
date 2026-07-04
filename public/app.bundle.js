@@ -215,10 +215,14 @@ VaultChat.streamChat = function(messages, noteContext, apiKey, onChunk, onDone) 
   var systemPrompt = '你是"王者之剑"知识库的AI助手。用户可能引用了以下笔记作为上下文：\n\n' +
     noteCtxText + '\n\n请用中文回答。基于提供的笔记内容进行回答，如果笔记中没有相关信息请说明。';
 
-  // Determine API type: gemini, custom proxy, or default claude
+  // Determine API type: deepseek, gemini, custom proxy, or default claude
   var apiBase = (settings.apiBase || '').trim();
   var isGemini = apiBase.indexOf('generativelanguage.googleapis.com') !== -1 || (settings.provider === 'gemini');
+  var isDeepSeek = settings.provider === 'deepseek';
 
+  if (isDeepSeek) {
+    return self.streamDeepSeek(key, systemPrompt, messages, onChunk, onDone);
+  }
   if (isGemini) {
     return self.streamGemini(key, systemPrompt, messages, onChunk, onDone);
   }
@@ -375,6 +379,74 @@ VaultChat.streamGemini = function(apiKey, systemPrompt, messages, onChunk, onDon
   });
 };
 
+// DeepSeek streaming - CORS OK, no proxy needed!
+VaultChat.streamDeepSeek = function(apiKey, systemPrompt, messages, onChunk, onDone) {
+  var dsMessages = [{ role: 'system', content: systemPrompt }];
+  for (var i = 0; i < messages.length; i++) {
+    dsMessages.push({ role: messages[i].role, content: messages[i].content });
+  }
+
+  return fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: dsMessages,
+      max_tokens: 2048,
+      stream: true
+    })
+  }).then(function(res) {
+    if (!res.ok) {
+      return res.text().then(function(text) {
+        var errMsg = 'DeepSeek 请求失败 (' + res.status + ')';
+        try {
+          var data = JSON.parse(text);
+          errMsg = (data.error && data.error.message) || errMsg;
+        } catch (e) {
+          if (text) errMsg = text.substring(0, 200);
+        }
+        throw new Error(errMsg);
+      });
+    }
+    return res;
+  }).then(function(res) {
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+
+    function readChunk() {
+      return reader.read().then(function(result) {
+        if (result.done) {
+          if (onDone) onDone();
+          return;
+        }
+        var chunk = decoder.decode(result.value, { stream: true });
+        var lines = chunk.split('\n');
+        for (var li = 0; li < lines.length; li++) {
+          var line = lines[li];
+          if (line.startsWith('data: ')) {
+            var data = line.slice(6).trim();
+            if (data === '[DONE]') {
+              if (onDone) onDone();
+              return;
+            }
+            try {
+              var parsed = JSON.parse(data);
+              if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+                onChunk(parsed.choices[0].delta.content);
+              }
+            } catch (e) {}
+          }
+        }
+        return readChunk();
+      });
+    }
+    return readChunk();
+  });
+};
+
 // ============ COMPONENTS ============
 
 // --- Toast ---
@@ -471,7 +543,7 @@ VaultChat.renderSettings = function(container) {
   var V = VaultChat;
   var settings = V.getSettings();
   var currentToken = V.getToken() || '';
-  var currentProvider = settings.provider || 'gemini';
+  var currentProvider = settings.provider || 'deepseek';
 
   container.innerHTML =
     '<div class="settings-panel">' +
@@ -484,22 +556,30 @@ VaultChat.renderSettings = function(container) {
       '<div class="settings-group">' +
         '<label>AI 对话引擎</label>' +
         '<select id="settings-provider" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-input);color:var(--text);font-size:14px">' +
-          '<option value="gemini"' + (currentProvider === 'gemini' ? ' selected' : '') + '>Google Gemini（免费推荐）</option>' +
-          '<option value="claude"' + (currentProvider === 'claude' ? ' selected' : '') + '>Claude（需官方API Key）</option>' +
+          '<option value="deepseek"' + (currentProvider === 'deepseek' ? ' selected' : '') + '>DeepSeek（免费推荐）</option>' +
+          '<option value="gemini"' + (currentProvider === 'gemini' ? ' selected' : '') + '>Google Gemini（免费）</option>' +
+          '<option value="claude"' + (currentProvider === 'claude' ? ' selected' : '') + '>Claude（需官方Key）</option>' +
         '</select>' +
       '</div>' +
-      '<div id="gemini-settings">' +
+      '<div id="deepseek-settings" style="display:' + (currentProvider === 'deepseek' ? 'block' : 'none') + '">' +
+        '<div class="settings-group">' +
+          '<label>DeepSeek API Key</label>' +
+          '<input type="password" id="settings-ds-key" value="' + (settings.apiKey || '') + '" placeholder="sk-xxxxx">' +
+          '<div class="hint">免费注册：<a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:var(--accent)">platform.deepseek.com</a> → 手机号注册 → 创建 API Key</div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="gemini-settings" style="display:' + (currentProvider === 'gemini' ? 'block' : 'none') + '">' +
         '<div class="settings-group">' +
           '<label>Gemini API Key</label>' +
-          '<input type="password" id="settings-apikey" value="' + (settings.apiKey || '') + '" placeholder="AIzaSyxxxxx">' +
-          '<div class="hint">免费获取：<a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">Google AI Studio</a> → Create API Key</div>' +
+          '<input type="password" id="settings-gm-key" value="' + (settings.geminiKey || '') + '" placeholder="AIzaSyxxxxx">' +
+          '<div class="hint">免费获取：<a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">Google AI Studio</a></div>' +
         '</div>' +
       '</div>' +
       '<div id="claude-settings" style="display:' + (currentProvider === 'claude' ? 'block' : 'none') + '">' +
         '<div class="settings-group">' +
           '<label>Claude API Key</label>' +
           '<input type="password" id="settings-claude-key" value="' + (settings.claudeKey || '') + '" placeholder="sk-ant-xxxxx">' +
-          '<div class="hint">需 Anthropic 官方 Key，从 console.anthropic.com 获取</div>' +
+          '<div class="hint">需 Anthropic 官方 Key</div>' +
         '</div>' +
         '<div class="settings-group">' +
           '<label>自定义代理地址（可选）</label>' +
@@ -516,9 +596,10 @@ VaultChat.renderSettings = function(container) {
       '<button class="logout-btn" id="logout-btn">退出登录</button>' +
     '</div>';
 
-  // Toggle between Gemini and Claude settings
+  // Toggle between provider settings
   document.getElementById('settings-provider').addEventListener('change', function() {
     var provider = this.value;
+    document.getElementById('deepseek-settings').style.display = provider === 'deepseek' ? 'block' : 'none';
     document.getElementById('gemini-settings').style.display = provider === 'gemini' ? 'block' : 'none';
     document.getElementById('claude-settings').style.display = provider === 'claude' ? 'block' : 'none';
   });
@@ -526,16 +607,20 @@ VaultChat.renderSettings = function(container) {
   document.getElementById('settings-save').addEventListener('click', function() {
     var token = document.getElementById('settings-token').value.trim();
     var provider = document.getElementById('settings-provider').value;
-    var apiKey = document.getElementById('settings-apikey').value.trim();
+    var dsKey = document.getElementById('settings-ds-key') ? document.getElementById('settings-ds-key').value.trim() : '';
+    var gmKey = document.getElementById('settings-gm-key') ? document.getElementById('settings-gm-key').value.trim() : '';
     var claudeKey = document.getElementById('settings-claude-key') ? document.getElementById('settings-claude-key').value.trim() : '';
     var apiBase = document.getElementById('settings-apibase') ? document.getElementById('settings-apibase').value.trim() : '';
     var customHeaders = document.getElementById('settings-headers') ? document.getElementById('settings-headers').value.trim() : '';
 
     if (token) V.setToken(token);
 
+    var activeKey = provider === 'deepseek' ? dsKey : (provider === 'gemini' ? gmKey : claudeKey);
     var newSettings = Object.assign({}, settings, {
       provider: provider,
-      apiKey: provider === 'gemini' ? apiKey : (claudeKey || apiKey),
+      apiKey: activeKey,
+      deepseekKey: dsKey || '',
+      geminiKey: gmKey || '',
       claudeKey: claudeKey || '',
       apiBase: apiBase || '',
       customHeaders: customHeaders || ''
