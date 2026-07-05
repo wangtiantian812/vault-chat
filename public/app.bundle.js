@@ -2,7 +2,7 @@
 // All code in one file, no ES modules, max compatibility
 
 var VaultChat = {
-  VERSION: 'v14',
+  VERSION: 'v15',
   state: { noteContext: [], tree: null, currentTab: 'notes', imageMap: {} }
 };
 
@@ -619,6 +619,9 @@ VaultChat.renderSettings = function(container) {
       '<div class="settings-group">' +
         '<button id="settings-save">保存设置</button>' +
       '</div>' +
+      '<div class="settings-group">' +
+        '<button id="force-refresh-btn" style="width:100%;padding:12px;border:1px solid var(--accent);border-radius:12px;background:transparent;color:var(--accent);font-size:15px;cursor:pointer">清除缓存并刷新</button>' +
+      '</div>' +
       '<button class="logout-btn" id="logout-btn">退出登录</button>' +
       '<div style="text-align:center;color:var(--text-dim);font-size:12px;margin-top:20px">版本 ' + V.VERSION + '</div>' +
     '</div>';
@@ -654,6 +657,18 @@ VaultChat.renderSettings = function(container) {
     });
     V.saveSettings(newSettings);
     V.showToast('设置已保存');
+  document.getElementById('force-refresh-btn').addEventListener('click', function() {
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (var i = 0; i < names.length; i++) caches.delete(names[i]);
+      });
+    }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) regs[i].unregister();
+      });
+    }
+    window.location.reload(true);
   });
 
   document.getElementById('logout-btn').addEventListener('click', function() {

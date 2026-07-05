@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <base href="/vault-chat/">
   <meta name="theme-color" content="#1a1a2e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>王者之剑 - 知识库</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="src/styles/main.css?v=8">
+  <link rel="stylesheet" href="src/styles/main.css?v=15">
 </head>
 <body>
   <div id="app">
@@ -22,27 +25,15 @@
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   </div>
   <script>
-    // Force clear all caches and service workers for fresh load
-    if ('caches' in window) {
-      caches.keys().then(function(names) {
-        for (var i = 0; i < names.length; i++) caches.delete(names[i]);
-      });
-    }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        for (var i = 0; i < regs.length; i++) regs[i].unregister();
-      });
-    }
-    window.onerror = function(msg, src, line) {
+    // Cache bust: use timestamp to always load fresh JS
+    var jsVer = 'v15_' + Date.now();
+    var script = document.createElement('script');
+    script.src = 'app.bundle.js?' + jsVer;
+    script.onerror = function() {
       var el = document.getElementById('app');
-      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;white-space:pre-wrap;">JS Error: ' + msg + '\\n' + (src||'') + ':' + line + '</div>';
+      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;">加载失败，请检查网络后刷新页面</div>';
     };
-    window.onunhandledrejection = function(e) {
-      var el = document.getElementById('app');
-      var msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
-      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;">Async Error: ' + msg + '</div>';
-    };
+    document.body.appendChild(script);
   </script>
-  <script src="app.bundle.js?v=14"></script>
 </body>
 </html>
