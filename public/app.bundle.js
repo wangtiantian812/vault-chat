@@ -70,6 +70,14 @@ VaultChat.renderMarkdown = function(md) {
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/!\[\[([^\]]+)\]\]/g, function(_, name) {
+    var imgPath = VaultChat.state.imageMap && (VaultChat.state.imageMap[name] || VaultChat.state.imageMap[name.toLowerCase()]);
+    if (imgPath) {
+      var rawUrl = 'https://raw.githubusercontent.com/' + VaultChat.OWNER + '/' + VaultChat.REPO + '/' + VaultChat.BRANCH + '/' + imgPath.split('/').map(encodeURIComponent).join('/');
+      return '<img src="' + rawUrl + '" alt="' + name + '" style="max-width:100%;border-radius:8px;margin:8px 0" loading="lazy">';
+    }
+    return '<span style="color:var(--text-dim)">[图片: ' + name + ']</span>';
+  });
   html = html.replace(/\[\[([^\]]+)\]\]/g, function(_, link) {
     return '<span class="wiki-link" data-link="' + link + '">' + link + '</span>';
   });
@@ -119,9 +127,26 @@ VaultChat.fetchTree = function() {
     if (!res.ok) throw new Error('获取文件树失败: ' + res.status);
     return res.json();
   }).then(function(data) {
-    var mdFiles = data.tree.filter(function(item) {
-      return item.type === 'blob' && item.path.endsWith('.md');
-    });
+    var imgExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'];
+    var mdFiles = [];
+    var imageMap = {};
+    for (var ti = 0; ti < data.tree.length; ti++) {
+      var item = data.tree[ti];
+      if (item.type !== 'blob') continue;
+      if (item.path.endsWith('.md')) {
+        mdFiles.push(item);
+      } else {
+        var lower = item.path.toLowerCase();
+        for (var ei = 0; ei < imgExts.length; ei++) {
+          if (lower.endsWith(imgExts[ei])) {
+            var fileName = item.path.split('/').pop();
+            imageMap[fileName] = item.path;
+            break;
+          }
+        }
+      }
+    }
+    self.state.imageMap = imageMap;
     var tree = {};
     for (var fi = 0; fi < mdFiles.length; fi++) {
       var filePath = mdFiles[fi].path;

@@ -1,4 +1,4 @@
-var CACHE_NAME = 'vault-chat-v8';
+var CACHE_NAME = 'vault-chat-v9';
 var BASE = '/vault-chat/';
 
 self.addEventListener('install', function(event) {
