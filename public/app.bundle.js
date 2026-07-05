@@ -2,7 +2,7 @@
 // All code in one file, no ES modules, max compatibility
 
 var VaultChat = {
-  VERSION: 'v15',
+  VERSION: 'v16',
   state: { noteContext: [], tree: null, currentTab: 'notes', imageMap: {} }
 };
 
@@ -657,6 +657,8 @@ VaultChat.renderSettings = function(container) {
     });
     V.saveSettings(newSettings);
     V.showToast('设置已保存');
+  });
+
   document.getElementById('force-refresh-btn').addEventListener('click', function() {
     if ('caches' in window) {
       caches.keys().then(function(names) {
