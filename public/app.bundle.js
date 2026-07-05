@@ -2,7 +2,8 @@
 // All code in one file, no ES modules, max compatibility
 
 var VaultChat = {
-  state: { noteContext: [], tree: null, currentTab: 'notes' }
+  VERSION: 'v14',
+  state: { noteContext: [], tree: null, currentTab: 'notes', imageMap: {} }
 };
 
 // ============ STORAGE ============
@@ -619,6 +620,7 @@ VaultChat.renderSettings = function(container) {
         '<button id="settings-save">保存设置</button>' +
       '</div>' +
       '<button class="logout-btn" id="logout-btn">退出登录</button>' +
+      '<div style="text-align:center;color:var(--text-dim);font-size:12px;margin-top:20px">版本 ' + V.VERSION + '</div>' +
     '</div>';
 
   // Toggle between provider settings
