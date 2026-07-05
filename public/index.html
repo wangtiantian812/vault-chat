@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>王者之剑 - 知识库</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="src/styles/main.css?v=15">
+  <link rel="stylesheet" href="src/styles/main.css?v=16">
 </head>
 <body>
   <div id="app">
@@ -24,16 +24,6 @@
     </div>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   </div>
-  <script>
-    // Cache bust: use timestamp to always load fresh JS
-    var jsVer = 'v15_' + Date.now();
-    var script = document.createElement('script');
-    script.src = 'app.bundle.js?' + jsVer;
-    script.onerror = function() {
-      var el = document.getElementById('app');
-      if (el) el.innerHTML = '<div style="color:red;padding:20px;font-size:14px;">加载失败，请检查网络后刷新页面</div>';
-    };
-    document.body.appendChild(script);
-  </script>
+  <script src="app.v16.js"></script>
 </body>
 </html>
