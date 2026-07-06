@@ -577,6 +577,19 @@ VaultChat.showToast = function(msg) {
   setTimeout(function() { toast.remove(); }, 3000);
 };
 
+// --- Fullscreen ---
+VaultChat.tryFullscreen = function() {
+  var el = document.documentElement;
+  var rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (rfs) {
+    rfs.call(el).catch(function() {});
+  }
+};
+
+VaultChat.isFullscreen = function() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+};
+
 // --- Login Screen ---
 VaultChat.renderLogin = function(container) {
   var V = VaultChat;
@@ -621,6 +634,7 @@ VaultChat.renderLogin = function(container) {
       btn.disabled = true;
       btn.textContent = '设置中...';
       V.setAppPassword(password).then(function() {
+        V.tryFullscreen();
         V.renderApp(container);
       });
     } else {
@@ -628,6 +642,7 @@ VaultChat.renderLogin = function(container) {
       btn.textContent = '登录中...';
       V.verifyPassword(password).then(function(ok) {
         if (ok) {
+          V.tryFullscreen();
           V.renderApp(container);
         } else {
           error.textContent = '密码错误';
@@ -717,6 +732,10 @@ VaultChat.renderSettings = function(container) {
       '<div class="settings-group">' +
         '<button id="force-refresh-btn" style="width:100%;padding:12px;border:1px solid var(--accent);border-radius:12px;background:transparent;color:var(--accent);font-size:15px;cursor:pointer">清除缓存并刷新</button>' +
       '</div>' +
+      '<div class="settings-group">' +
+        '<button id="fullscreen-btn" style="width:100%;padding:12px;border:none;border-radius:12px;background:#7c5cff;color:white;font-size:15px;cursor:pointer;font-weight:bold">全屏模式</button>' +
+        '<div id="fullscreen-status" style="margin-top:8px;font-size:12px;color:var(--text-dim);text-align:center"></div>' +
+      '</div>' +
       '<button class="logout-btn" id="logout-btn">退出登录</button>' +
       '<div style="text-align:center;color:var(--text-dim);font-size:12px;margin-top:20px">版本 ' + V.VERSION + '</div>' +
     '</div>';
@@ -792,6 +811,20 @@ VaultChat.renderSettings = function(container) {
     }
     window.location.reload(true);
   });
+
+  var fsBtn = document.getElementById('fullscreen-btn');
+  var fsStatus = document.getElementById('fullscreen-status');
+  if (V.isFullscreen()) {
+    if (fsStatus) fsStatus.textContent = '当前已是全屏模式';
+  }
+  if (fsBtn) {
+    fsBtn.addEventListener('click', function() {
+      V.tryFullscreen();
+      setTimeout(function() {
+        if (fsStatus) fsStatus.textContent = V.isFullscreen() ? '已进入全屏模式' : '全屏请求已发送，请允许';
+      }, 500);
+    });
+  }
 
   document.getElementById('logout-btn').addEventListener('click', function() {
     localStorage.removeItem('auth-token');
