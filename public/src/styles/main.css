@@ -579,3 +579,59 @@ html, body {
   from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* Chat history list */
+.chat-history-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.history-items {
+  flex: 1;
+  overflow-y: auto;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.history-item:hover {
+  background: var(--bg-card);
+}
+.history-item-main {
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
+}
+.history-summary {
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+.history-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.history-delete:hover {
+  color: var(--danger) !important;
+}
+
+/* Chat header with history button */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.chat-header #context-badges {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
