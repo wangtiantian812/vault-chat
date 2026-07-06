@@ -4,7 +4,7 @@
   "description": "移动端访问Obsidian知识库，与AI对话",
   "start_url": "/vault-chat/",
   "scope": "/vault-chat/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#1a1a2e",
   "theme_color": "#7c5cff",
