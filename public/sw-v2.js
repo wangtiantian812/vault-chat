@@ -1,5 +1,5 @@
 // Minimal SW - only for PWA install, no caching
-var CACHE_NAME = 'vault-chat-v19';
+var CACHE_NAME = 'vault-chat-v21';
 
 self.addEventListener('install', function() {
   self.skipWaiting();

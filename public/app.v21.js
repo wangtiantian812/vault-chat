@@ -1611,6 +1611,23 @@ window.addEventListener('beforeinstallprompt', function(e) {
   var V = VaultChat;
   var app = document.getElementById('app');
 
+  // Intercept all external link clicks — open in system browser, not inside PWA
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (!link) return;
+    var href = link.getAttribute('href');
+    if (!href) return;
+    // Skip internal/hash/javascript links
+    if (href.indexOf('#') === 0 || href.indexOf('javascript:') === 0) return;
+    // Skip vault-relative links
+    if (href.indexOf('/') === 0 && href.indexOf('//') !== 0) return;
+    // External link — open in system browser
+    if (href.indexOf('http://') === 0 || href.indexOf('https://') === 0) {
+      e.preventDefault();
+      window.open(href, '_system');
+    }
+  });
+
   var params = new URLSearchParams(window.location.search);
   var shouldCleanUrl = false;
   var urlToken = params.get('token');
