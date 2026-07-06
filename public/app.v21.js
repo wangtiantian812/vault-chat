@@ -1621,10 +1621,19 @@ window.addEventListener('beforeinstallprompt', function(e) {
     if (href.indexOf('#') === 0 || href.indexOf('javascript:') === 0) return;
     // Skip vault-relative links
     if (href.indexOf('/') === 0 && href.indexOf('//') !== 0) return;
-    // External link — open in system browser
+    // External link — open in system browser, not inside PWA
     if (href.indexOf('http://') === 0 || href.indexOf('https://') === 0) {
       e.preventDefault();
-      window.open(href, '_system');
+      e.stopPropagation();
+      // Create a temporary link outside the app container to force system browser
+      var tmpLink = document.createElement('a');
+      tmpLink.href = href;
+      tmpLink.target = '_blank';
+      tmpLink.rel = 'noopener noreferrer';
+      tmpLink.style.display = 'none';
+      document.body.appendChild(tmpLink);
+      tmpLink.click();
+      setTimeout(function() { tmpLink.remove(); }, 100);
     }
   });
 
