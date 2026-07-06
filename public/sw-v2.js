@@ -15,6 +15,6 @@ self.addEventListener('activate', function(event) {
 });
 
 self.addEventListener('fetch', function(event) {
-  // Never cache anything, always fetch from network
-  return;
+  // Network-only strategy: always fetch fresh, no caching
+  event.respondWith(fetch(event.request));
 });

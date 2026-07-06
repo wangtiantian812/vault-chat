@@ -629,6 +629,9 @@ VaultChat.renderSettings = function(container) {
         '<button id="settings-save">保存设置</button>' +
       '</div>' +
       '<div class="settings-group">' +
+        '<button id="install-app-btn" style="width:100%;padding:12px;border:none;border-radius:12px;background:#22c55e;color:white;font-size:15px;cursor:pointer;font-weight:bold;display:' + (V.deferredInstallPrompt ? 'block' : 'none') + '">安装到桌面（App模式）</button>' +
+      '</div>' +
+      '<div class="settings-group">' +
         '<button id="force-refresh-btn" style="width:100%;padding:12px;border:1px solid var(--accent);border-radius:12px;background:transparent;color:var(--accent);font-size:15px;cursor:pointer">清除缓存并刷新</button>' +
       '</div>' +
       '<button class="logout-btn" id="logout-btn">退出登录</button>' +
@@ -667,6 +670,21 @@ VaultChat.renderSettings = function(container) {
     V.saveSettings(newSettings);
     V.showToast('设置已保存');
   });
+
+  var installBtn = document.getElementById('install-app-btn');
+  if (installBtn && V.deferredInstallPrompt) {
+    installBtn.style.display = 'block';
+    installBtn.addEventListener('click', function() {
+      V.deferredInstallPrompt.prompt();
+      V.deferredInstallPrompt.userChoice.then(function(choice) {
+        if (choice.outcome === 'accepted') {
+          V.showToast('安装成功！从桌面打开即可使用');
+        }
+        V.deferredInstallPrompt = null;
+        installBtn.style.display = 'none';
+      });
+    });
+  }
 
   document.getElementById('force-refresh-btn').addEventListener('click', function() {
     if ('caches' in window) {
@@ -1219,6 +1237,15 @@ VaultChat.renderApp = function(container) {
   }
   document.getElementById('tab-notes').dataset.init = '1';
 };
+
+// ============ PWA INSTALL ============
+
+VaultChat.deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  VaultChat.deferredInstallPrompt = e;
+});
 
 // ============ AUTH / INIT ============
 
