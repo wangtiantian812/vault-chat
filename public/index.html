@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>王者之剑 - 知识库</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="src/styles/main.css?v=16">
+  <link rel="stylesheet" href="src/styles/main.css?v=19">
 </head>
 <body>
   <div id="app">
@@ -24,6 +24,12 @@
     </div>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   </div>
-  <script src="app.v18.js"></script>
+  <script>
+    // Register minimal service worker for PWA install
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw-v2.js').catch(function() {});
+    }
+  </script>
+  <script src="app.v19.js"></script>
 </body>
 </html>
