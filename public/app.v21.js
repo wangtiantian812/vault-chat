@@ -17,7 +17,14 @@ VaultChat.setToken = function(token) {
 };
 
 VaultChat.isLoggedIn = function() {
-  return !!localStorage.getItem('auth-token');
+  // If password was set before, always consider logged in
+  if (localStorage.getItem('app-password-hash')) {
+    if (!localStorage.getItem('auth-token')) {
+      localStorage.setItem('auth-token', 'verified');
+    }
+    return true;
+  }
+  return false;
 };
 
 VaultChat.isSetupDone = function() {
@@ -590,6 +597,16 @@ VaultChat.isFullscreen = function() {
   return !!(document.fullscreenElement || document.webkitFullscreenElement);
 };
 
+// Auto-enter fullscreen on first touch (browsers require user gesture)
+VaultChat._fullscreenOnce = function() {
+  if (VaultChat.isFullscreen()) return;
+  VaultChat.tryFullscreen();
+  document.removeEventListener('touchstart', VaultChat._fullscreenOnce);
+  document.removeEventListener('click', VaultChat._fullscreenOnce);
+};
+document.addEventListener('touchstart', VaultChat._fullscreenOnce, { once: true });
+document.addEventListener('click', VaultChat._fullscreenOnce, { once: true });
+
 // --- Login Screen ---
 VaultChat.renderLogin = function(container) {
   var V = VaultChat;
@@ -770,6 +787,16 @@ VaultChat.renderSettings = function(container) {
     });
     V.saveSettings(newSettings);
     V.showToast('设置已保存');
+    // Reset notes tab so it re-loads with new token
+    var notesPanel = document.getElementById('tab-notes');
+    if (notesPanel) {
+      delete notesPanel.dataset.init;
+      notesPanel.innerHTML = '';
+      if (V.state.currentTab === 'notes') {
+        V.renderNoteBrowser(notesPanel);
+        notesPanel.dataset.init = '1';
+      }
+    }
   });
 
   var installBtn = document.getElementById('install-app-btn');
