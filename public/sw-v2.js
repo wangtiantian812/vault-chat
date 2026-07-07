@@ -1,5 +1,5 @@
 // Service Worker v22 - aggressive update + no caching
-var CACHE_NAME = 'vault-chat-v22';
+var CACHE_NAME = 'vault-chat-v23';
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();
