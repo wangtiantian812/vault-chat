@@ -28,7 +28,7 @@ VaultChat.isLoggedIn = function() {
 };
 
 VaultChat.isSetupDone = function() {
-  return !!localStorage.getItem('app-password-hash');
+  return !!localStorage.getItem('app-password-hash') || !!localStorage.getItem('gh-token');
 };
 
 VaultChat.setAppPassword = function(password) {
@@ -42,6 +42,10 @@ VaultChat.verifyPassword = function(password) {
   return VaultChat.sha256(password).then(function(hash) {
     return hash === localStorage.getItem('app-password-hash');
   });
+};
+
+VaultChat.hasPassword = function() {
+  return !!localStorage.getItem('app-password-hash');
 };
 
 VaultChat.sha256 = function(text) {
@@ -610,16 +614,22 @@ document.addEventListener('click', VaultChat._fullscreenOnce, { once: true });
 // --- Login Screen ---
 VaultChat.renderLogin = function(container) {
   var V = VaultChat;
-  var isReturning = V.isSetupDone();
+  var hasPwd = V.hasPassword();
 
   container.innerHTML =
     '<div class="login-screen">' +
       '<div class="login-box">' +
         '<h1>王者之剑</h1>' +
         '<p>移动端知识库</p>' +
-        '<input type="password" id="login-password" placeholder="' + (isReturning ? '输入密码' : '设置密码') + '" autocomplete="current-password">' +
-        '<input type="password" id="login-password2" placeholder="确认密码" style="' + (isReturning ? 'display:none' : '') + '">' +
-        '<button id="login-btn">' + (isReturning ? '登录' : '设置密码并进入') + '</button>' +
+        (hasPwd ?
+          '<input type="password" id="login-password" placeholder="输入密码" autocomplete="current-password">' +
+          '<button id="login-btn">登录</button>'
+        :
+          '<input type="password" id="login-password" placeholder="设置密码（可选）" autocomplete="current-password">' +
+          '<input type="password" id="login-password2" placeholder="确认密码" style="display:none">' +
+          '<button id="login-btn">设置密码并进入</button>' +
+          '<button id="skip-login-btn" style="width:100%;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:transparent;color:var(--text-dim);font-size:14px;cursor:pointer;margin-top:8px">跳过，直接进入</button>'
+        ) +
         '<div id="login-error" class="login-error" style="display:none"></div>' +
       '</div>' +
     '</div>';
@@ -628,6 +638,7 @@ VaultChat.renderLogin = function(container) {
   var input = document.getElementById('login-password');
   var input2 = document.getElementById('login-password2');
   var error = document.getElementById('login-error');
+  var skipBtn = document.getElementById('skip-login-btn');
 
   function doLogin() {
     var password = input.value;
@@ -636,7 +647,21 @@ VaultChat.renderLogin = function(container) {
       error.style.display = 'block';
       return;
     }
-    if (!isReturning) {
+    if (hasPwd) {
+      btn.disabled = true;
+      btn.textContent = '登录中...';
+      V.verifyPassword(password).then(function(ok) {
+        if (ok) {
+          V.tryFullscreen();
+          V.renderApp(container);
+        } else {
+          error.textContent = '密码错误';
+          error.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = '登录';
+        }
+      });
+    } else {
       var password2 = input2.value;
       if (password !== password2) {
         error.textContent = '两次密码不一致';
@@ -654,36 +679,40 @@ VaultChat.renderLogin = function(container) {
         V.tryFullscreen();
         V.renderApp(container);
       });
-    } else {
-      btn.disabled = true;
-      btn.textContent = '登录中...';
-      V.verifyPassword(password).then(function(ok) {
-        if (ok) {
-          V.tryFullscreen();
-          V.renderApp(container);
-        } else {
-          error.textContent = '密码错误';
-          error.style.display = 'block';
-          btn.disabled = false;
-          btn.textContent = '登录';
-        }
-      });
     }
+  }
+
+  // Show confirm field when typing in password setup
+  if (!hasPwd && input) {
+    input.addEventListener('input', function() {
+      if (input.value.length > 0 && input2) {
+        input2.style.display = 'block';
+      }
+    });
+  }
+
+  if (skipBtn) {
+    skipBtn.addEventListener('click', function() {
+      V.tryFullscreen();
+      V.renderApp(container);
+    });
   }
 
   btn.addEventListener('click', doLogin);
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-      if (!isReturning && input2.style.display !== 'none') {
+      if (!hasPwd && input2 && input2.style.display !== 'none') {
         input2.focus();
       } else {
         doLogin();
       }
     }
   });
-  input2.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') doLogin();
-  });
+  if (input2) {
+    input2.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+  }
   input.focus();
 };
 
@@ -1724,9 +1753,14 @@ window.addEventListener('beforeinstallprompt', function(e) {
     window.history.replaceState({}, '', cleanUrl);
   }
 
-  if (V.isSetupDone() && V.isLoggedIn()) {
-    V.renderApp(app);
+  // No password set → go straight to app; password set → require login
+  if (V.hasPassword()) {
+    if (V.isLoggedIn()) {
+      V.renderApp(app);
+    } else {
+      V.renderLogin(app);
+    }
   } else {
-    V.renderLogin(app);
+    V.renderApp(app);
   }
 })();
