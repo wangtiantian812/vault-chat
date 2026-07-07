@@ -852,10 +852,11 @@ VaultChat.renderSettings = function(container) {
     if (notesPanel) {
       delete notesPanel.dataset.init;
       notesPanel.innerHTML = '';
-      if (V.state.currentTab === 'notes') {
-        V.renderNoteBrowser(notesPanel);
-        notesPanel.dataset.init = '1';
-      }
+    }
+    // Auto-switch to notes tab after saving token
+    if (token) {
+      var notesTab = container.querySelector('[data-tab="notes"]');
+      if (notesTab) notesTab.click();
     }
   });
 
@@ -1618,6 +1619,17 @@ VaultChat.renderApp = function(container) {
   // Always render note browser — if no token, it will show error with settings link
   V.renderNoteBrowser(document.getElementById('tab-notes'));
   document.getElementById('tab-notes').dataset.init = '1';
+
+  // If no token, auto-switch to settings tab for first-time setup
+  if (!V.getToken()) {
+    V.state.currentTab = 'settings';
+    document.getElementById('tab-notes').classList.remove('active');
+    document.getElementById('tab-settings').classList.add('active');
+    tabs.forEach(function(t) { t.classList.remove('active'); });
+    container.querySelector('[data-tab="settings"]').classList.add('active');
+    V.renderSettings(document.getElementById('tab-settings'));
+    document.getElementById('tab-settings').dataset.init = '1';
+  }
 };
 
 // ============ INSTALL GUIDE ============
