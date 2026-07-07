@@ -14,7 +14,7 @@ VaultChat.getToken = function() {
 
 VaultChat.setToken = function(token) {
   localStorage.setItem('gh-token', token);
-  document.cookie = 'gh-token=' + encodeURIComponent(token) + ';max-age=31536000;path=/vault-chat/';
+  document.cookie = 'gh-token=' + encodeURIComponent(token) + ';max-age=31536000;path=/vault-chat;SameSite=Lax';
 };
 
 VaultChat.isLoggedIn = function() {
@@ -35,7 +35,7 @@ VaultChat.getCookie = function(name) {
 
 VaultChat.setCookie = function(name, value, days) {
   var d = days || 365;
-  document.cookie = name + '=' + encodeURIComponent(value) + ';max-age=' + (d * 86400) + ';path=/vault-chat/';
+  document.cookie = name + '=' + encodeURIComponent(value) + ';max-age=' + (d * 86400) + ';path=/vault-chat;SameSite=Lax';
 };
 
 VaultChat.isSetupDone = function() {
@@ -73,8 +73,19 @@ VaultChat.sha256 = function(text) {
 
 VaultChat.getSettings = function() {
   var raw = localStorage.getItem('vault-chat-settings') || VaultChat.getCookie('vault-chat-settings');
-  if (!raw) return { apiKey: '' };
-  try { return JSON.parse(raw); } catch (e) { return { apiKey: '' }; }
+  if (raw) {
+    try { return JSON.parse(raw); } catch (e) {}
+  }
+  // Fallback: reconstruct from individual cookies
+  var provider = VaultChat.getCookie('vc-provider') || 'deepseek';
+  var dsKey = VaultChat.getCookie('vc-ds-key') || '';
+  var gmKey = VaultChat.getCookie('vc-gm-key') || '';
+  var claudeKey = VaultChat.getCookie('vc-claude-key') || '';
+  var activeKey = provider === 'deepseek' ? dsKey : (provider === 'gemini' ? gmKey : claudeKey);
+  if (activeKey) {
+    return { provider: provider, apiKey: activeKey, deepseekKey: dsKey, geminiKey: gmKey, claudeKey: claudeKey };
+  }
+  return { apiKey: '' };
 };
 
 VaultChat.saveSettings = function(settings) {
@@ -846,6 +857,11 @@ VaultChat.renderSettings = function(container) {
       customHeaders: customHeaders || ''
     });
     V.saveSettings(newSettings);
+    // Extra cookie backup for individual keys (in case settings JSON cookie is too long)
+    V.setCookie('vc-provider', provider);
+    if (dsKey) V.setCookie('vc-ds-key', dsKey);
+    if (gmKey) V.setCookie('vc-gm-key', gmKey);
+    if (claudeKey) V.setCookie('vc-claude-key', claudeKey);
     V.showToast('设置已保存');
     // Reset notes tab so it re-loads with new token
     var notesPanel = document.getElementById('tab-notes');
