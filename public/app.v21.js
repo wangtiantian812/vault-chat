@@ -9,16 +9,17 @@ var VaultChat = {
 // ============ STORAGE ============
 
 VaultChat.getToken = function() {
-  return localStorage.getItem('gh-token');
+  return localStorage.getItem('gh-token') || VaultChat.getCookie('gh-token');
 };
 
 VaultChat.setToken = function(token) {
   localStorage.setItem('gh-token', token);
+  document.cookie = 'gh-token=' + encodeURIComponent(token) + ';max-age=31536000;path=/vault-chat/';
 };
 
 VaultChat.isLoggedIn = function() {
   // If password was set before, always consider logged in
-  if (localStorage.getItem('app-password-hash')) {
+  if (localStorage.getItem('app-password-hash') || VaultChat.getCookie('app-password-hash')) {
     if (!localStorage.getItem('auth-token')) {
       localStorage.setItem('auth-token', 'verified');
     }
@@ -27,25 +28,38 @@ VaultChat.isLoggedIn = function() {
   return false;
 };
 
+VaultChat.getCookie = function(name) {
+  var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+};
+
+VaultChat.setCookie = function(name, value, days) {
+  var d = days || 365;
+  document.cookie = name + '=' + encodeURIComponent(value) + ';max-age=' + (d * 86400) + ';path=/vault-chat/';
+};
+
 VaultChat.isSetupDone = function() {
-  return !!localStorage.getItem('app-password-hash') || !!localStorage.getItem('gh-token');
+  return !!(localStorage.getItem('app-password-hash') || VaultChat.getCookie('app-password-hash') || localStorage.getItem('gh-token') || VaultChat.getCookie('gh-token'));
 };
 
 VaultChat.setAppPassword = function(password) {
   return VaultChat.sha256(password).then(function(hash) {
     localStorage.setItem('app-password-hash', hash);
     localStorage.setItem('auth-token', 'verified');
+    VaultChat.setCookie('app-password-hash', hash);
+    VaultChat.setCookie('auth-token', 'verified');
   });
 };
 
 VaultChat.verifyPassword = function(password) {
   return VaultChat.sha256(password).then(function(hash) {
-    return hash === localStorage.getItem('app-password-hash');
+    var stored = localStorage.getItem('app-password-hash') || VaultChat.getCookie('app-password-hash');
+    return hash === stored;
   });
 };
 
 VaultChat.hasPassword = function() {
-  return !!localStorage.getItem('app-password-hash');
+  return !!(localStorage.getItem('app-password-hash') || VaultChat.getCookie('app-password-hash'));
 };
 
 VaultChat.sha256 = function(text) {
@@ -58,13 +72,14 @@ VaultChat.sha256 = function(text) {
 };
 
 VaultChat.getSettings = function() {
-  var raw = localStorage.getItem('vault-chat-settings');
+  var raw = localStorage.getItem('vault-chat-settings') || VaultChat.getCookie('vault-chat-settings');
   if (!raw) return { apiKey: '' };
   try { return JSON.parse(raw); } catch (e) { return { apiKey: '' }; }
 };
 
 VaultChat.saveSettings = function(settings) {
   localStorage.setItem('vault-chat-settings', JSON.stringify(settings));
+  VaultChat.setCookie('vault-chat-settings', JSON.stringify(settings));
 };
 
 // ============ CHAT HISTORY ============
@@ -605,11 +620,16 @@ VaultChat.isFullscreen = function() {
 VaultChat._fullscreenOnce = function() {
   if (VaultChat.isFullscreen()) return;
   VaultChat.tryFullscreen();
+  // Remember fullscreen preference
+  VaultChat.setCookie('fullscreen-preferred', '1');
   document.removeEventListener('touchstart', VaultChat._fullscreenOnce);
   document.removeEventListener('click', VaultChat._fullscreenOnce);
 };
-document.addEventListener('touchstart', VaultChat._fullscreenOnce, { once: true });
-document.addEventListener('click', VaultChat._fullscreenOnce, { once: true });
+// If user previously chose fullscreen, auto-request on first touch
+if (VaultChat.getCookie('fullscreen-preferred') === '1') {
+  document.addEventListener('touchstart', VaultChat._fullscreenOnce, { once: true });
+  document.addEventListener('click', VaultChat._fullscreenOnce, { once: true });
+}
 
 // --- Login Screen ---
 VaultChat.renderLogin = function(container) {
@@ -1584,19 +1604,8 @@ VaultChat.renderApp = function(container) {
     });
   });
 
-  if (hasToken) {
-    V.renderNoteBrowser(document.getElementById('tab-notes'));
-  } else {
-    document.getElementById('tab-notes').innerHTML =
-      '<div style="text-align:center;padding:60px 20px;color:var(--text-dim)">' +
-        '<p style="font-size:18px;margin-bottom:12px;color:var(--text)">欢迎使用王者之剑</p>' +
-        '<p style="margin-bottom:20px">请先在「设置」中配置 GitHub Token</p>' +
-        '<button id="go-settings" style="padding:12px 24px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;cursor:pointer">前往设置</button>' +
-      '</div>';
-    document.getElementById('go-settings').addEventListener('click', function() {
-      document.querySelector('[data-tab="settings"]').click();
-    });
-  }
+  // Always render note browser — if no token, it will show error with settings link
+  V.renderNoteBrowser(document.getElementById('tab-notes'));
   document.getElementById('tab-notes').dataset.init = '1';
 };
 
