@@ -616,20 +616,34 @@ VaultChat.isFullscreen = function() {
   return !!(document.fullscreenElement || document.webkitFullscreenElement);
 };
 
-// Auto-enter fullscreen on first touch (browsers require user gesture)
-VaultChat._fullscreenOnce = function() {
-  if (VaultChat.isFullscreen()) return;
-  VaultChat.tryFullscreen();
-  // Remember fullscreen preference
-  VaultChat.setCookie('fullscreen-preferred', '1');
-  document.removeEventListener('touchstart', VaultChat._fullscreenOnce);
-  document.removeEventListener('click', VaultChat._fullscreenOnce);
+// --- Splash Screen (triggers fullscreen on entry) ---
+VaultChat.renderSplash = function(container) {
+  var V = VaultChat;
+  container.innerHTML =
+    '<div class="splash-screen">' +
+      '<div class="splash-content">' +
+        '<div class="splash-icon">&#9876;</div>' +
+        '<h1>王者之剑</h1>' +
+        '<p>移动端知识库</p>' +
+        '<button id="splash-enter">进入</button>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('splash-enter').addEventListener('click', function() {
+    V.tryFullscreen();
+    V.setCookie('fullscreen-preferred', '1');
+    // Check if password needed
+    if (V.hasPassword()) {
+      if (V.isLoggedIn()) {
+        V.renderApp(container);
+      } else {
+        V.renderLogin(container);
+      }
+    } else {
+      V.renderApp(container);
+    }
+  });
 };
-// If user previously chose fullscreen, auto-request on first touch
-if (VaultChat.getCookie('fullscreen-preferred') === '1') {
-  document.addEventListener('touchstart', VaultChat._fullscreenOnce, { once: true });
-  document.addEventListener('click', VaultChat._fullscreenOnce, { once: true });
-}
 
 // --- Login Screen ---
 VaultChat.renderLogin = function(container) {
@@ -672,7 +686,6 @@ VaultChat.renderLogin = function(container) {
       btn.textContent = '登录中...';
       V.verifyPassword(password).then(function(ok) {
         if (ok) {
-          V.tryFullscreen();
           V.renderApp(container);
         } else {
           error.textContent = '密码错误';
@@ -696,7 +709,6 @@ VaultChat.renderLogin = function(container) {
       btn.disabled = true;
       btn.textContent = '设置中...';
       V.setAppPassword(password).then(function() {
-        V.tryFullscreen();
         V.renderApp(container);
       });
     }
@@ -713,7 +725,6 @@ VaultChat.renderLogin = function(container) {
 
   if (skipBtn) {
     skipBtn.addEventListener('click', function() {
-      V.tryFullscreen();
       V.renderApp(container);
     });
   }
@@ -1762,14 +1773,6 @@ window.addEventListener('beforeinstallprompt', function(e) {
     window.history.replaceState({}, '', cleanUrl);
   }
 
-  // No password set → go straight to app; password set → require login
-  if (V.hasPassword()) {
-    if (V.isLoggedIn()) {
-      V.renderApp(app);
-    } else {
-      V.renderLogin(app);
-    }
-  } else {
-    V.renderApp(app);
-  }
+  // Always show splash first — triggers fullscreen on "进入" click
+  V.renderSplash(app);
 })();
